@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ManDocsMcp.Server/ManDocsMcp.Server.csproj" />
+  </Folder>
+</Solution>

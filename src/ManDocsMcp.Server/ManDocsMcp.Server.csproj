@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+  </ItemGroup>
+  <Target Name="DeployToKubuntu" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+	<Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(PublishDir)..\deploy.ps1&quot; -PublishDir &quot;$(PublishDir.TrimEnd('\'))&quot;" />
+</Target>
+</Project>
