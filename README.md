@@ -18,7 +18,8 @@ ManDocsMcp/
 
 - MCP server host using the official C# SDK, with local `stdio` transport.
 - Read-only local tools: `search_man`, `get_man_page`, and `get_system_context`.
-- Read-only online tools: `search_ubuntu_manpages` and `get_ubuntu_manpage`, using the official Ubuntu Manpage Repository.
+- Read-only online manpage tools: `search_ubuntu_manpages` and `get_ubuntu_manpage`, using the official Ubuntu Manpage Repository.
+- Read-only general documentation tools: `search_ubuntu_docs` and `get_ubuntu_doc`, using official Ubuntu Desktop, Server, Core, WSL, and Ubuntu Project documentation.
 - A harmless `ping` tool for connection testing.
 - No arbitrary shell-command tool and no LAN/HTTP listener yet.
 
@@ -52,14 +53,16 @@ The Linux machine needs the **.NET 10 runtime** installed. The server writes MCP
 
 > The server will wait for MCP messages on standard input when run directly. Use an MCP client (or an MCP inspector) to test it; it is not a terminal user interface.
 
-## Online Ubuntu manpages
+## Online Ubuntu documentation
 
-The online tools query the official Ubuntu Manpage Repository over HTTPS. If `release` is omitted, the server reads `UBUNTU_CODENAME` or `VERSION_CODENAME` from `/etc/os-release`; otherwise, supply a release codename explicitly. Online results are separate from the locally installed man pages and can reflect a different package version.
+The online tools use HTTPS and return results from official Ubuntu sources. Manpages are release-specific. General product guides are searched from the published Sphinx indexes for Ubuntu Desktop, Server, Core, WSL, and Ubuntu Project; these guides are often rolling/latest documentation and are not automatically matched to the local OS release.
 
 - `search_ubuntu_manpages(query, release?, maxResults?)` searches a release and returns the repository's JSON result data and source link.
 - `get_ubuntu_manpage(pageName, section, release?)` retrieves a plain-text page, with a 64 KiB response limit.
+- `search_ubuntu_docs(query, product?, maxResults?)` searches general guides. `product` can be `desktop`, `server`, `core`, `wsl`, `project`, or `all`.
+- `get_ubuntu_doc(product, documentPath)` fetches a page using a product key and relative path returned by `search_ubuntu_docs`; arbitrary URLs are not accepted. Page text is limited to 96 KiB.
 
-General Ubuntu product documentation and LAN/HTTP transport are not implemented yet; they can be added as separate features after these online manpage tools are tested.
+The general-documentation tools search only the official product documentation sets listed above. Other Ubuntu and Canonical product documentation can be added to the allowlist in a later update. LAN/HTTP transport is not implemented yet.
 
 ## SDK
 
