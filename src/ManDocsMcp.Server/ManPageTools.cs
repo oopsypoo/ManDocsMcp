@@ -142,6 +142,107 @@ public static class ManPageTools
         return $"Local manual-page matches for '{query}'{(section is null ? string.Empty : $" (section {section})")}:\n{resultText}{footer}";
     }
 
+    private static readonly Regex ValidPageName = new(@"^[a-zA-Z0-9_][a-zA-Z0-9_.:+-]{0,127}$", RegexOptions.CultureInvariant);
+
+    [McpServerTool(Name = "get_man_page", ReadOnly = true, Destructive = false, OpenWorld = false), Description("Retrieves one local manual page as plain text. Optionally restricts lookup to a manual section. The response is limited to 64 KiB.")]
+    public static async Task<string> GetManPage(
+        [Description("Exact manual page name, such as 'ls', 'chmod', or 'systemd.unit'. Do not include a path or section.")] string pageName,
+        [Description("Optional manual section, such as '1', '5', or '3pm'. Omit to use the system's normal section preference.")] string? section = null)
+    {
+        if (string.IsNullOrWhiteSpace(pageName) || !ValidPageName.IsMatch(pageName))
+        {
+            return "Invalid page name. Use 1-128 letters, numbers, underscores, periods, colons, plus signs, or hyphens; the name must start with a letter, number, or underscore and must not contain a path.";
+        }
+
+        if (section is not null && !ValidSection.IsMatch(section))
+        {
+            return "Invalid section. Use a section such as '1', '5', or '3pm'.";
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "man",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        // Force non-interactive output and avoid inherited man options changing the invocation.
+        startInfo.ArgumentList.Add("--pager=cat");
+        if (section is not null)
+        {
+            startInfo.ArgumentList.Add("--sections");
+            startInfo.ArgumentList.Add(section);
+        }
+
+        startInfo.ArgumentList.Add(pageName);
+        startInfo.Environment["MANOPT"] = string.Empty;
+        startInfo.Environment["MANPAGER"] = "cat";
+        startInfo.Environment["PAGER"] = "cat";
+        startInfo.Environment["MANROFFOPT"] = string.Empty;
+        startInfo.Environment["MANWIDTH"] = "100";
+
+        using var process = new Process { StartInfo = startInfo };
+        try
+        {
+            if (!process.Start())
+            {
+                return "Could not start man.";
+            }
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return "Could not find 'man'. Install man-db (or the package providing man) on the Linux host.";
+        }
+
+        Task<(string Text, bool Truncated)> stdoutTask = ReadBoundedAsync(
+            process.StandardOutput, MaximumOutputCharacters, () => TryKill(process));
+        Task<(string Text, bool Truncated)> stderrTask = ReadBoundedAsync(
+            process.StandardError, MaximumErrorCharacters, () => TryKill(process));
+
+        using var timeout = new CancellationTokenSource(SearchTimeout);
+        bool timedOut = false;
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            timedOut = true;
+            TryKill(process);
+            await process.WaitForExitAsync();
+        }
+
+        (string output, bool outputTruncated) = await stdoutTask;
+        (string error, bool errorTruncated) = await stderrTask;
+
+        if (timedOut)
+        {
+            return "Retrieving the local manual page exceeded the 10-second time limit and was stopped.";
+        }
+
+        if (errorTruncated)
+        {
+            return "The local man command produced an oversized error response and was stopped.";
+        }
+
+        if (process.ExitCode == 16 || string.IsNullOrWhiteSpace(output))
+        {
+            return $"No local manual page was found for '{pageName}'{(section is null ? string.Empty : $" in section {section}")}.";
+        }
+
+        if (process.ExitCode != 0 && !outputTruncated)
+        {
+            string details = string.IsNullOrWhiteSpace(error) ? string.Empty : $" Details: {error.Trim()}";
+            return $"man failed with exit code {process.ExitCode}.{details}";
+        }
+
+        string heading = $"Local manual page: {pageName}{(section is null ? string.Empty : $" (section {section})")}";
+        string truncationNote = outputTruncated ? "\n\n[Output truncated at 64 KiB.]" : string.Empty;
+        return $"{heading}\n\n{output.TrimEnd()}{truncationNote}";
+    }
+
     private static string EscapeExtendedRegex(string value)
     {
         var escaped = new StringBuilder(value.Length * 2);
