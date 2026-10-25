@@ -1,6 +1,6 @@
 # ManDocsMcp
 
-A small, cross-platform MCP server for local and online Ubuntu manual pages. It currently uses **stdio only** and targets **.NET 10**. It is intended to be built on Windows, copied to a Kubuntu/Linux machine, and launched by an MCP client there.
+A small, cross-platform MCP server for local and online Ubuntu manual pages. It supports local **stdio** and optional **Streamable HTTP** transports, and targets **.NET 10**. It is intended to be built on Windows and run on a Kubuntu/Linux machine.
 
 ## Solution layout
 
@@ -16,12 +16,14 @@ ManDocsMcp/
 
 ## Current state
 
-- MCP server host using the official C# SDK, with local `stdio` transport.
+- MCP server host using the official C# SDK. `stdio` is the default transport; opt into Streamable HTTP with `--transport http`.
+- HTTP mode serves the MCP endpoint at `/mcp`, defaults to loopback on port `8080`, and requires an explicit, non-wildcard listen address for LAN use.
+- HTTP mode validates the request `Host` against the configured listen address and rejects cross-origin browser requests. It does not provide authentication; restrict LAN access with your firewall.
 - Read-only local tools: `search_man`, `get_man_page`, and `get_system_context`.
 - Read-only online manpage tools: `search_ubuntu_manpages` and `get_ubuntu_manpage`, using the official Ubuntu Manpage Repository.
 - Read-only general documentation tools: `search_ubuntu_docs` and `get_ubuntu_doc`, using official Ubuntu Desktop, Server, Core, WSL, and Ubuntu Project documentation.
 - A harmless `ping` tool for connection testing.
-- No arbitrary shell-command tool and no LAN/HTTP listener yet.
+- No arbitrary shell-command tool.
 
 ## Build in Visual Studio on Windows
 
@@ -49,9 +51,23 @@ cd /path/to/ManDocsMcp
 dotnet ManDocsMcp.Server.dll
 ```
 
-The Linux machine needs the **.NET 10 runtime** installed. The server writes MCP protocol messages to standard output and logs to standard error. Normally, configure your MCP client to launch it with command `dotnet` and the full path to `ManDocsMcp.Server.dll` as its argument; use the client-specific configuration format.
+The Linux machine needs the **.NET 10 ASP.NET Core runtime** installed (check with `dotnet --list-runtimes` for `Microsoft.AspNetCore.App 10.x`). The server writes MCP protocol messages to standard output and logs to standard error. Normally, configure your MCP client to launch it with command `dotnet` and the full path to `ManDocsMcp.Server.dll` as its argument; use the client-specific configuration format.
 
 > The server will wait for MCP messages on standard input when run directly. Use an MCP client (or an MCP inspector) to test it; it is not a terminal user interface.
+
+## Run as a standalone LAN HTTP server
+
+HTTP mode uses Streamable HTTP at `/mcp`. By default, it listens only on `127.0.0.1:8080`, so it is not LAN-accessible until you explicitly bind it to a specific address assigned to the Kubuntu machine:
+
+```bash
+dotnet ManDocsMcp.Server.dll --transport http --urls http://192.168.1.131:8080
+```
+
+Replace `192.168.1.131` with the machine's current LAN IP. In your MCP client, configure the HTTP endpoint as `http://192.168.1.131:8080/mcp`. Keep the process running while clients use it; stop it with `Ctrl+C`.
+
+> **Security:** Do not expose this unauthenticated HTTP server to the public internet or configure router port forwarding. Allow port `8080` through the Kubuntu firewall only for trusted LAN devices. The server deliberately rejects wildcard binds such as `0.0.0.0`; bind to a specific LAN address instead. Plain HTTP is unencrypted, so use it only on a trusted network.
+
+The existing `stdio` setup remains unchanged: omit `--transport http` (or use `--transport stdio`) when your client should launch the server as a child process.
 
 ## Online Ubuntu documentation
 
@@ -62,7 +78,7 @@ The online tools use HTTPS and return results from official Ubuntu sources. Manp
 - `search_ubuntu_docs(query, product?, maxResults?)` searches general guides. `product` can be `desktop`, `server`, `core`, `wsl`, `project`, or `all`.
 - `get_ubuntu_doc(product, documentPath)` fetches a page using a product key and relative path returned by `search_ubuntu_docs`; arbitrary URLs are not accepted. Page text is limited to 96 KiB.
 
-The general-documentation tools search only the official product documentation sets listed above. Other Ubuntu and Canonical product documentation can be added to the allowlist in a later update. LAN/HTTP transport is not implemented yet.
+The general-documentation tools search only the official product documentation sets listed above. Other Ubuntu and Canonical product documentation can be added to the allowlist in a later update.
 
 ## SDK
 
