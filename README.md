@@ -12,7 +12,8 @@ ManDocsMcp/
     └── ManDocsMcp.Server/
         ├── ManDocsMcp.Server.csproj
         ├── Program.cs
-        └── LocalCommandTools.cs
+        ├── LocalCommandTools.cs
+        └── SystemDiagnosticsTools.cs
 ```
 
 ## Current state
@@ -20,7 +21,7 @@ ManDocsMcp/
 - MCP server host using the official C# SDK. `stdio` is the default transport; opt into Streamable HTTP with `--transport http`.
 - HTTP mode serves the MCP endpoint at `/mcp`, defaults to loopback on port `8080`, and requires an explicit, non-wildcard listen address for LAN use.
 - HTTP mode validates the request `Host` against the configured listen address and rejects cross-origin browser requests. It does not provide authentication; restrict LAN access with your firewall.
-- Read-only local tools: `search_man`, `get_man_page`, `get_system_context`, and `check_local_commands`. `check_local_commands` checks bare command names against the MCP server's Linux `PATH` without running them and reports the owning installed Debian package/version when the local dpkg database can identify it. It does not report APT candidates or commands available only on the MCP client.
+- Read-only local tools: `search_man`, `get_man_page`, `get_system_context`, `check_local_commands`, and optional `get_system_diagnostics`. `check_local_commands` checks bare command names against the MCP server's Linux `PATH` without running them and reports the owning installed Debian package/version when the local dpkg database can identify it. It does not report APT candidates or commands available only on the MCP client. `get_system_diagnostics` runs a fixed `inxi -ezxx` report only when requested, without `sudo` or installation; it has time and output limits and warns that hardware/configuration data should be reviewed before sharing.
 - Read-only online manpage tools: `search_ubuntu_manpages` and `get_ubuntu_manpage`, using the official Ubuntu Manpage Repository.
 - Read-only general documentation tools: `search_ubuntu_docs` and `get_ubuntu_doc`, using official Ubuntu Desktop, Server, Core, WSL, and Ubuntu Project documentation.
 - A harmless `ping` tool for connection testing.
